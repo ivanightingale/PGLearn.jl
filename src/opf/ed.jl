@@ -106,7 +106,7 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     # Objective
 
     c = [ref[:gen][g][:cost][2] for g in 1:G]
-    q = [get(ref[:gen][g], :reserve_cost, zeros(T, 3))[2] for g in 1:G]
+    q = [get!(ref[:gen][g], :reserve_cost, zeros(T, 3))[2] for g in 1:G]
     
     l, u = extrema(gen["cost"][1] for (i, gen) in ref[:gen])
     (l == u == 0.0) || @warn "Data $(data["name"]) has quadratic cost terms; those terms are being ignored"
