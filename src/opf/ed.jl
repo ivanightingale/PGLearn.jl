@@ -1,6 +1,3 @@
-using JuMP
-using PowerModels
-using LinearAlgebra
 mutable struct EconomicDispatch <: PM.AbstractPowerModel end
 
 function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
@@ -31,10 +28,10 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     E = length(data["branch"])
     L = length(ref[:load])
 
-    pmin = [ref[:gen][g][:pmin] for g in 1:G]
-    pmax = [ref[:gen][g][:pmax] for g in 1:G]
-    rmax = [ref[:gen][g][:rmax] for g in 1:G]
-    PD = sum(ref[:load][l][:pd] for l in 1:L)
+    pmin = [ref[:gen][g]["pmin"] for g in 1:G]
+    pmax = [ref[:gen][g]["pmax"] for g in 1:G]
+    rmax = [ref[:gen][g]["rmax"] for g in 1:G]
+    PD = sum(ref[:load][l]["pd"] for l in 1:L)
     pfmax = [data["branch"]["$e"]["rate_a"] for e in 1:E]
 
     model = JuMP.GenericModel{T}(optimizer)
@@ -172,10 +169,18 @@ function solve!(opf::OPFModel{EconomicDispatch})
 
     solved = false
     niter = 0
+    solve_time = 0.0
+    model.ext[:termination_info] = Dict{Symbol,Any}(
+        :termination_status => nothing,
+        :primal_status => nothing,
+        :dual_status => nothing,
+        :solve_time => nothing,
+    )
     while !solved && niter < model.ext[:opf_formulation][:max_ptdf_iterations]
         optimize!(opf.model, _differentiation_backend = MathOptSymbolicAD.DefaultBackend())
         st = termination_status(model)
-        st == MOI.OPTIMAL || error("Solver failed to converge: $st")
+        solve_time += JuMP.solve_time(model)
+        st ∈ (MOI.OPTIMAL, MOI.LOCALLY_SOLVED) || break
         pg_ = value.(model[:pg])
         p_ = Ag * pg_ - Al * pd
         pf_ = model.ext[:PTDF] * p_
@@ -199,6 +204,22 @@ function solve!(opf::OPFModel{EconomicDispatch})
         niter += 1
     end
 
+    if niter == model.ext[:opf_formulation][:max_ptdf_iterations]
+        model.ext[:termination_info] = Dict{Symbol,Any}(
+            :termination_status => MOI.ITERATION_LIMIT,
+            :primal_status => MOI.INFEASIBLE_POINT,
+            :dual_status => MOI.UNKNOWN_RESULT_STATUS,
+            :solve_time => solve_time,
+        )
+    else
+        model.ext[:termination_info] = Dict{Symbol,Any}(
+            :termination_status => termination_status(model),
+            :primal_status => primal_status(model),
+            :dual_status => dual_status(model),
+            :solve_time => solve_time,
+        )
+    end
+
     # @info("Solved in $niter iteration" * (niter == 1 ? "" : "s"))
 
     opf.model.ext[:ptdf_iter] = niter
@@ -220,10 +241,21 @@ function extract_result(opf::OPFModel{EconomicDispatch})
     res["objective"] = JuMP.objective_value(model)
     res["objective_lb"] = -Inf
     res["optimizer"] = JuMP.solver_name(model)
-    res["solve_time"] = JuMP.solve_time(model)
-    res["termination_status"] = string(JuMP.termination_status(model))
-    res["primal_status"] = string(JuMP.primal_status(model))
-    res["dual_status"] = string(JuMP.dual_status(model))
+
+    res["opf_formulation"] = model.ext[:opf_formulation]
+    if model.ext[:opf_formulation][:iterative_ptdf]
+        tinfo = model.ext[:termination_info]
+        res["termination_status"] = string(tinfo[:termination_status])
+        res["primal_status"] = string(tinfo[:primal_status])
+        res["dual_status"] = string(tinfo[:dual_status])
+        res["solve_time"] = tinfo[:solve_time]
+    else
+        res["termination_status"] = string(JuMP.termination_status(model))
+        res["primal_status"] = string(JuMP.primal_status(model))
+        res["dual_status"] = string(JuMP.dual_status(model))
+        res["solve_time"] = JuMP.solve_time(model)
+    end
+
     res["solution"] = sol = Dict{String,Any}()
 
     sol["per_unit"] = get(data, "per_unit", false)

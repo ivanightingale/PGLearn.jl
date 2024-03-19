@@ -3,6 +3,7 @@ module OPFGenerator
 using Random
 using StableRNGs
 using Distributions
+using LinearAlgebra
 
 using PowerModels
 const PM = PowerModels
