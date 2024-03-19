@@ -30,9 +30,10 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
 
     pmin = [ref[:gen][g]["pmin"] for g in 1:G]
     pmax = [ref[:gen][g]["pmax"] for g in 1:G]
-    rmax = [ref[:gen][g]["rmax"] for g in 1:G]
     PD = sum(ref[:load][l]["pd"] for l in 1:L)
     pfmax = [data["branch"]["$e"]["rate_a"] for e in 1:E]
+
+    rmax = (minimum_reserve > 0.0) ? [ref[:gen][g]["rmax"] for g in 1:G] : zeros(T, G)
 
     model = JuMP.GenericModel{T}(optimizer)
     model.ext[:opf_model] = EconomicDispatch  # for internal checks
@@ -75,12 +76,8 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
         JuMP.set_upper_bound(δpb_shortage, 0)
     end
 
-    if !soft_reserve_requirement || minimum_reserve == 0.0
+    if !soft_reserve_requirement || minimum_reserve > 0.0
         JuMP.set_upper_bound(δr_shortage, 0)
-    end
-
-    if minimum_reserve == 0.0
-        JuMP.set_upper_bound.(r, 0)
     end
 
     if !soft_thermal_limit
