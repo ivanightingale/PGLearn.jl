@@ -22,6 +22,13 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     length(ref[:ref_buses]) == 1 || error("Data has $(length(ref[:ref_buses])) slack buses (expected 1).")
     i0 = first(keys(ref[:ref_buses]))
 
+    power_balance_penalty >= 0.0 || error("EconomicDispatch option power_balance_penalty must be non-negative")
+    reserve_shortage_penalty >= 0.0 || error("EconomicDispatch option reserve_shortage_penalty must be non-negative")
+    transmission_penalty >= 0.0 || error("EconomicDispatch option transmission_penalty must be non-negative")
+    minimum_reserve >= 0.0 || error("EconomicDispatch option minimum_reserve must be non-negative")
+    max_ptdf_iterations > 0 || error("EconomicDispatch option max_ptdf_iterations must be a positive integer")
+    max_ptdf_per_iteration > 0 || error("EconomicDispatch option max_ptdf_per_iteration must be a positive integer")
+
     # Grab some data
     N = length(ref[:bus])
     G = length(ref[:gen])
