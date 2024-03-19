@@ -1,3 +1,5 @@
+using SparseArrays
+
 mutable struct EconomicDispatch <: PM.AbstractPowerModel end
 
 function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
@@ -115,8 +117,8 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
 
     # Objective
 
-    c = [ref[:gen][g][:cost][2] for g in 1:G]
-    q = [get!(ref[:gen][g], :reserve_cost, zeros(T, 3))[2] for g in 1:G]
+    c = [ref[:gen][g]["cost"][2] for g in 1:G]
+    q = [get!(ref[:gen][g], "reserve_cost", zeros(T, 3))[2] for g in 1:G]
     
     l, u = extrema(gen["cost"][1] for (i, gen) in ref[:gen])
     (l == u == 0.0) || @warn "Data $(data["name"]) has quadratic cost terms; those terms are being ignored"
@@ -125,8 +127,8 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     (l == u == 0.0) || @warn "Data $(data["name"]) has quadratic reserve cost terms; those terms are being ignored"
 
     JuMP.@objective(model, Min,
-        sum(c[g]*pg[g] + ref[:gen][g][:cost][3] for g in 1:G) +
-        sum(q[g]*r[g] + ref[:gen][g][:reserve_cost][3] for g in 1:G) +
+        sum(c[g]*pg[g] + ref[:gen][g]["cost"][3] for g in 1:G) +
+        sum(q[g]*r[g] + ref[:gen][g]["reserve_cost"][3] for g in 1:G) +
         power_balance_penalty * δpb_surplus +
         power_balance_penalty * δpb_shortage +
         reserve_shortage_penalty * δr_shortage +
@@ -214,6 +216,7 @@ function solve!(opf::OPFModel{EconomicDispatch})
             :primal_status => MOI.INFEASIBLE_POINT,
             :dual_status => MOI.UNKNOWN_RESULT_STATUS,
             :solve_time => solve_time,
+            :ptdf_iter => niter,
         )
     else
         model.ext[:termination_info] = Dict{Symbol,Any}(
@@ -221,12 +224,9 @@ function solve!(opf::OPFModel{EconomicDispatch})
             :primal_status => primal_status(model),
             :dual_status => dual_status(model),
             :solve_time => solve_time,
+            :ptdf_iter => niter,
         )
     end
-
-    # @info("Solved in $niter iteration" * (niter == 1 ? "" : "s"))
-
-    opf.model.ext[:ptdf_iter] = niter
 
     return
 end
@@ -253,6 +253,7 @@ function extract_result(opf::OPFModel{EconomicDispatch})
         res["primal_status"] = string(tinfo[:primal_status])
         res["dual_status"] = string(tinfo[:dual_status])
         res["solve_time"] = tinfo[:solve_time]
+        res["ptdf_iterations"] = tinfo[:ptdf_iter]
     else
         res["termination_status"] = string(JuMP.termination_status(model))
         res["primal_status"] = string(JuMP.primal_status(model))
