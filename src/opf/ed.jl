@@ -195,7 +195,7 @@ function solve!(opf::OPFModel{EconomicDispatch})
         niter += 1
     end
 
-    @info("Solved in $niter iteration" * (niter == 1 ? "" : "s"))
+    # @info("Solved in $niter iteration" * (niter == 1 ? "" : "s"))
 
     opf.model.ext[:ptdf_iter] = niter
 
