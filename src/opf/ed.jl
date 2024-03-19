@@ -275,7 +275,7 @@ function extract_result(opf::OPFModel{EconomicDispatch})
     return res
 end
 
-function json2h5(::Type{PM.EconomicDispatch}, res)
+function json2h5(::Type{EconomicDispatch}, res)
     sol = res["solution"]
 
     E = length(sol["branch"])
