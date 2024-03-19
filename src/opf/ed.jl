@@ -13,6 +13,8 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     reserve_shortage_penalty=1100.0,
     transmission_penalty=1500.0,
     minimum_reserve=0.0,
+    max_ptdf_iterations=10,
+    max_ptdf_per_iteration=5,
 )
     # Cleanup and pre-process data
     PM.standardize_cost_terms!(data, order=2)
@@ -46,6 +48,8 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
         :transmission_penalty => transmission_penalty,
         :minimum_reserve => minimum_reserve,
         :iterative_ptdf => iterative_ptdf,
+        :max_ptdf_iterations => max_ptdf_iterations,
+        :max_ptdf_per_iteration => max_ptdf_per_iteration,
     )
 
     # Variables
@@ -63,6 +67,7 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
         pf[e] - δf[e] <= pfmax[e] 
     )
 
+    # for upper bounds, see https://github.com/AI4OPT/OPFGenerator/pull/64/files#r1529320645
     JuMP.@variable(model, δpb_surplus >= 0)
     JuMP.@variable(model, δpb_shortage >= 0)
     JuMP.@variable(model, δr_shortage >= 0)
@@ -163,7 +168,7 @@ function solve!(opf::OPFModel{EconomicDispatch})
 
     solved = false
     niter = 0
-    while !solved
+    while !solved && niter < model.ext[:opf_formulation][:max_ptdf_iterations]
         optimize!(opf.model, _differentiation_backend = MathOptSymbolicAD.DefaultBackend())
         st = termination_status(model)
         st == MOI.OPTIMAL || error("Solver failed to converge: $st")
@@ -177,12 +182,14 @@ function solve!(opf::OPFModel{EconomicDispatch})
                 continue
             end
 
-            model[:ptdf_flow][e] = JuMP.@constraint(
-                model,
-                model[:pf][e] == dot(model.ext[:PTDF][e, :], p_expr)
-            )
-            model.ext[:tracked_branches][e] = true
             n_violated += 1
+            if n_violated <= model.ext[:opf_formulation][:max_ptdf_per_iteration]
+                model[:ptdf_flow][e] = JuMP.@constraint(
+                    model,
+                    model[:pf][e] == dot(model.ext[:PTDF][e, :], p_expr)
+                )
+                model.ext[:tracked_branches][e] = true
+            end
         end
         solved = n_violated == 0
         niter += 1
