@@ -56,11 +56,11 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
 
     JuMP.@constraint(model,
         pf_lower_bound[e in 1:E],
-        pf[e] >= -pfmax[e] - δf[e]
+        pf[e] + δf[e] >= -pfmax[e] 
     )
     JuMP.@constraint(model,
         pf_upper_bound[e in 1:E],
-        pf[e] <= pfmax[e] + δf[e]
+        pf[e] - δf[e] <= pfmax[e] 
     )
 
     JuMP.@variable(model, δpb_surplus >= 0)
