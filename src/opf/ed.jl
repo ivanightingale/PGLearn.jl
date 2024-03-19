@@ -78,8 +78,12 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
         JuMP.set_upper_bound(δpb_shortage, 0)
     end
 
-    if !soft_reserve_requirement
+    if !soft_reserve_requirement || minimum_reserve == 0.0
         JuMP.set_upper_bound(δr_shortage, 0)
+    end
+
+    if minimum_reserve == 0.0
+        JuMP.set_upper_bound.(r, 0)
     end
 
     if !soft_thermal_limit
