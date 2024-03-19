@@ -237,7 +237,6 @@ function extract_result(opf::OPFModel{EconomicDispatch})
             sol["branch"]["$e"] = Dict(
                 "pf" => 0,
                 "df" => 0,
-
                 "mu_pf" => 0,
                 "mu_df" => 0,
                 "lam_ptdf" => 0,
@@ -246,10 +245,9 @@ function extract_result(opf::OPFModel{EconomicDispatch})
             sol["branch"]["$e"] = Dict(
                 "pf" => value(model[:pf][e]),
                 "df" => value(model[:δf][e]),
-
                 "mu_pf" => dual(model[:pf_lower_bound][e]) - dual(model[:pf_upper_bound][e]),
                 "mu_df" => dual(LowerBoundRef(model[:δf][e])) - dual(UpperBoundRef(model[:δf][e])),
-                "lam_ptdf" => isdefined(model[:ptdf_iter], b) ? dual(model[:ptdf_iter][b]) : 0.0
+                "lam_ptdf" => isdefined(model[:ptdf_iter], b) ? dual(model[:ptdf_iter][b]) : 0.0,
             )
         end
     end
@@ -291,9 +289,9 @@ function json2h5(::Type{PM.EconomicDispatch}, res)
         "pf" => zeros(Float64, E),
 
         "df" => zeros(Float64, E),
-        "dpb_surplus" => 0
-        "dpb_shortage" => 0
-        "dr_shortage" => 0
+        "dpb_surplus" => 0,
+        "dpb_shortage" => 0,
+        "dr_shortage" => 0,
     )
 
     res_h5["dual"] = dres_h5 = Dict{String,Any}(
