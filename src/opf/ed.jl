@@ -63,6 +63,12 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     JuMP.@variable(model, 0 <= r[g in 1:G] <= rmax[g])
     JuMP.@variable(model, pf[e in 1:E])
 
+    # for upper bounds, see https://github.com/AI4OPT/OPFGenerator/pull/64/files#r1529320645
+    JuMP.@variable(model, δpb_surplus >= 0)
+    JuMP.@variable(model, δpb_shortage >= 0)
+    JuMP.@variable(model, δr_shortage >= 0)
+    JuMP.@variable(model, δf[1:E] >= 0)
+
     JuMP.@constraint(model,
         pf_lower_bound[e in 1:E],
         pf[e] + δf[e] >= -pfmax[e] 
@@ -71,12 +77,6 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
         pf_upper_bound[e in 1:E],
         pf[e] - δf[e] <= pfmax[e] 
     )
-
-    # for upper bounds, see https://github.com/AI4OPT/OPFGenerator/pull/64/files#r1529320645
-    JuMP.@variable(model, δpb_surplus >= 0)
-    JuMP.@variable(model, δpb_shortage >= 0)
-    JuMP.@variable(model, δr_shortage >= 0)
-    JuMP.@variable(model, δf[1:E] >= 0)
 
     if !soft_power_balance
         JuMP.set_upper_bound(δpb_surplus, 0)
