@@ -3,8 +3,17 @@ using OPFGenerator
 
 makedocs(
     sitename = "OPFGenerator",
-    format = Documenter.HTML(),
-    modules = [OPFGenerator]
+    format = Documenter.HTML(;
+        mathengine = Documenter.MathJax(),
+    ),
+    pages = [
+        "Home" => "index.md",
+        "Manual" => [
+            "Problem formulations" => [
+                "DC-OPF" => "opf/dcp.md",
+            ],
+        ],
+    ],
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.

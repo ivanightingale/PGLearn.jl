@@ -1,0 +1,99 @@
+# DC-OPF
+
+## Notations
+
+### Input parameters
+
+Sets:
+* ``\mathcal{N} = \{1, ..., N\}``: Set of buses
+* ``\mathcal{E} = \{1, ..., E\}``: Set of branches
+* ``\mathcal{E}^{+}_{i}``: Set of branches _leaving_ bus ``i \in \mathcal{N}``
+* ``\mathcal{E}^{-}_{i}``: Set of branches _entering_ bus ``i \in \mathcal{N}``
+* ``\mathcal{G} = \{1, ..., G\}``: Set of generators
+* ``\mathcal{G}_{i} = \{1, ..., G_{i}\}``: Set of generators at bus ``i \in \mathcal{N}``
+* ``\mathcal{L} = \{1, ..., L\}``: Set of loads at bus ``i \in \mathcal{N}``
+* ``\mathcal{S} = \{1, ..., S\}``: Set of shunts
+
+Network data:
+* 
+
+### Primal variables
+
+* ``\boldsymbol{\theta}_{i}``: voltage angle at bus ``i \in \mathcal{N}``
+* ``\mathbf{pg}_{g}``: active power dispatch of generator ``g \in \mathcal{G}``
+* ``\mathbf{pf}_{e}``: active power flow on branch ``e \in \mathcal{E}``
+
+### Dual variables
+
+* 
+
+
+## Mathematical formulation
+
+```math
+\begin{align}
+    \min_{\mathbf{pg}, \mathbf{pf}, \boldsymbol{\theta}} \quad 
+    & \label{eq:DCP:objective}
+        \sum_{g \in \mathcal{G}} c_{g} \mathbf{pg}_{g} + c^{0}_{g}
+        \\
+    \text{s.t.} \quad
+    & \label{eq:DCP:slack_bus}
+        \boldsymbol{\theta}_{\text{slack}} = 0
+        &
+        &&& [\lambda^{\text{slack}}]\\
+    & \label{eq:DCP:kirchhoff}
+        \sum_{g \in \mathcal{G}_{i}} \mathbf{pg}_{g} 
+        - \sum_{e \in \mathcal{E}^{+}_{i}} \mathbf{pf}_{e}
+        + \sum_{e \in \mathcal{E}^{-}_{i}} \mathbf{pf}_{e}
+        = 
+        \sum_{l \in \mathcal{L}_{i}} p^{d}_{l}
+        + \sum_{s \in \mathcal{S}_{i}} g^{s}_{s}
+        & \forall i \in \mathcal{N}
+        &&& [\lambda^{\text{kcl}}]\\
+    & \label{eq:DCP:ohm}
+        \mathbf{pf}_{e}
+        =
+        b_{e} (\boldsymbol{\theta}_{t(e)} - \boldsymbol{\theta}_{s(e)})
+        & \forall e \in \mathcal{E}
+        &&& [\lambda^{\text{ohm}}]\\
+    & \label{eq:DCP:va_diff}
+        \underline{\Delta \boldsymbol{\theta}}_{e}
+        \leq
+        \boldsymbol{\theta}_{t(e)} - \boldsymbol{\theta}_{s(e)}
+        \leq 
+        \overline{\Delta \boldsymbol{\theta}}_{e}
+        & \forall e \in \mathcal{E}
+        &&& [\mu^{\Delta \boldsymbol{\theta}}]\\
+    & \label{eq:DCP:thermal}
+        -\overline{f}_{e} \leq \mathbf{pf}_{e} \leq \overline{f}_{e}
+        & \forall e \in \mathcal{E}
+        &&& [\mu^{f}]\\
+    & \label{eq:DCP:pg_bounds}
+        \underline{p}^{g}_{g} \leq \mathbf{pg}_{g} \leq \overline{p}^{g}_{g}
+        & \forall g \in \mathcal{G}
+        &&& [\mu^{pg}]
+\end{align}
+```
+
+## Nomenclature
+
+Primal
+
+| Symbol | Data | Size | Description 
+|:-------|:-----|:-----|:------------|
+| ``\mathbf{pg}`` | `pg` | ``G`` | Active power dispatch
+| ``\boldsymbol{\theta}`` | `va` | ``N`` | Nodal voltage angle
+| ``\mathbf{pf}`` | `pf` | ``E`` | Active power flow
+
+Dual
+
+| Symbol | Data | Size | Associated constraint 
+|:-------|:-----|:-----|:------------|
+| ``\lambda^{\text{kcl}}`` | `lam_kirchoff` | ``N`` | Nodal power balance ``\eqref{eq:DCP:kirchhoff}``
+| ``\lambda^{\text{ohm}}`` | `lam_ohm` | ``E`` | Ohm's law ``\eqref{eq:DCP:ohm}``
+| ``\mu^{\Delta \boldsymbol{\theta}}`` | `mu_va_diff` | ``E`` | Angle difference limit ``\eqref{eq:DCP:va_diff}``
+| ``\mu^{pf}`` | `mu_sm` | ``E`` | Thermal limit ``\eqref{eq:DCP:thermal}``
+| ``\mu^{pg}`` | `mu_pg` | ``G`` | Generation min/max limits ``\eqref{eq:DCP:pg_bounds}``
+| ``\lambda^{\text{slack}}`` | -- | ``1`` | Slack bus voltage angle ``\eqref{eq:DCP:slack_bus}``
+
+Dual variable ``\lambda^{\text{slack}}`` is always zero at the optimum, hence it is not exported.
