@@ -182,6 +182,7 @@ function solve!(opf::OPFModel{EconomicDispatch})
         :dual_status => nothing,
         :solve_time => nothing,
     )
+    st = nothing
     solve_time = @elapsed while !solved && niter < model.ext[:opf_formulation][:max_ptdf_iterations]
         optimize!(opf.model, _differentiation_backend = MathOptSymbolicAD.DefaultBackend())
         
@@ -245,7 +246,7 @@ function solve!(opf::OPFModel{EconomicDispatch})
     end
 
     model.ext[:termination_info][:solve_time] = solve_time
-    model.ext[:termination_info][:ptdf_iter] = niter
+    model.ext[:termination_info][:ptdf_iterations] = niter
     model.ext[:termination_info][:termination_status] = st
 
     return
@@ -273,7 +274,7 @@ function extract_result(opf::OPFModel{EconomicDispatch})
         res["primal_status"] = string(tinfo[:primal_status])
         res["dual_status"] = string(tinfo[:dual_status])
         res["solve_time"] = tinfo[:solve_time]
-        res["ptdf_iterations"] = tinfo[:ptdf_iter]
+        res["ptdf_iterations"] = tinfo[:ptdf_iterations]
     else
         res["termination_status"] = string(JuMP.termination_status(model))
         res["primal_status"] = string(JuMP.primal_status(model))
@@ -301,7 +302,7 @@ function extract_result(opf::OPFModel{EconomicDispatch})
 
     sol["branch"] = Dict{String,Any}()
     for e in 1:E
-        if data["branch"]["$b"]["br_status"] == 0
+        if data["branch"]["$e"]["br_status"] == 0
             sol["branch"]["$e"] = Dict(
                 "pf" => 0,
                 "df" => 0,
@@ -315,7 +316,7 @@ function extract_result(opf::OPFModel{EconomicDispatch})
                 "df" => value(model[:δf][e]),
                 "mu_pf" => dual(model[:pf_lower_bound][e]) - dual(model[:pf_upper_bound][e]),
                 "mu_df" => dual(LowerBoundRef(model[:δf][e])) - dual(UpperBoundRef(model[:δf][e])),
-                "lam_ptdf" => isdefined(model[:ptdf_iter], b) ? dual(model[:ptdf_iter][b]) : 0.0,
+                "lam_ptdf" => isdefined(model[:ptdf_flow], e) ? dual(model[:ptdf_flow][e]) : 0.0,
             )
         end
     end
