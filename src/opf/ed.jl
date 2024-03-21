@@ -182,11 +182,12 @@ function solve!(opf::OPFModel{EconomicDispatch})
         :dual_status => nothing,
         :solve_time => nothing,
     )
-    while !solved && niter < model.ext[:opf_formulation][:max_ptdf_iterations]
+    solve_time = @elapsed while !solved && niter < model.ext[:opf_formulation][:max_ptdf_iterations]
         optimize!(opf.model, _differentiation_backend = MathOptSymbolicAD.DefaultBackend())
+        
         st = termination_status(model)
-        solve_time += JuMP.solve_time(model)
         st ∈ (MOI.OPTIMAL, MOI.LOCALLY_SOLVED) || break
+
         pg_ = value.(model[:pg])
         p_ = Ag * pg_ - Al * pd
         pf_ = model.ext[:PTDF] * p_
@@ -214,19 +215,38 @@ function solve!(opf::OPFModel{EconomicDispatch})
         model.ext[:termination_info] = Dict{Symbol,Any}(
             :termination_status => MOI.ITERATION_LIMIT,
             :primal_status => MOI.INFEASIBLE_POINT,
+            :dual_status => MOI.FEASIBLE_POINT,
+        )
+    elseif st == MOI.TIME_LIMIT
+        model.ext[:termination_info] = Dict{Symbol,Any}(
+            :primal_status => MOI.INFEASIBLE_POINT,
+            :dual_status => MOI.FEASIBLE_POINT,
+        )
+    elseif st ∈ (MOI.INFEASIBLE, MOI.LOCALLY_INFEASIBLE)
+        model.ext[:termination_info] = Dict{Symbol,Any}(
+            :primal_status => MOI.UNKNOWN_RESULT_STATUS,
+            :dual_status => MOI.INFEASIBILITY_CERTIFICATE,
+        )
+    elseif st == MOI.DUAL_INFEASIBLE
+        model.ext[:termination_info] = Dict{Symbol,Any}(
+            :primal_status => MOI.INFEASIBILITY_CERTIFICATE,
             :dual_status => MOI.UNKNOWN_RESULT_STATUS,
-            :solve_time => solve_time,
-            :ptdf_iter => niter,
+        )
+    elseif st ∈ (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+        model.ext[:termination_info] = Dict{Symbol,Any}(
+            :primal_status => MOI.FEASIBLE_POINT,
+            :dual_status => MOI.FEASIBLE_POINT,
         )
     else
         model.ext[:termination_info] = Dict{Symbol,Any}(
-            :termination_status => termination_status(model),
-            :primal_status => primal_status(model),
-            :dual_status => dual_status(model),
-            :solve_time => solve_time,
-            :ptdf_iter => niter,
+            :primal_status => MOI.UNKNOWN_RESULT_STATUS,
+            :dual_status => MOI.UNKNOWN_RESULT_STATUS,
         )
     end
+
+    model.ext[:termination_info][:solve_time] = solve_time
+    model.ext[:termination_info][:ptdf_iter] = niter
+    model.ext[:termination_info][:termination_status] = st
 
     return
 end
