@@ -214,10 +214,10 @@ function solve!(opf::OPFModel{EconomicDispatch})
 
     if niter == model.ext[:opf_formulation][:max_ptdf_iterations]
         model.ext[:termination_info] = Dict{Symbol,Any}(
-            :termination_status => MOI.ITERATION_LIMIT,
             :primal_status => MOI.INFEASIBLE_POINT,
             :dual_status => MOI.FEASIBLE_POINT,
         )
+        st = MOI.ITERATION_LIMIT
     elseif st == MOI.TIME_LIMIT
         model.ext[:termination_info] = Dict{Symbol,Any}(
             :primal_status => MOI.INFEASIBLE_POINT,
