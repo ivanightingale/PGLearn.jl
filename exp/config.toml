@@ -26,6 +26,11 @@ solver.name = "Ipopt"
 solver.attributes.tol = 1e-6
 solver.attributes.linear_solver = "ma27"
 
+[OPF.ED]
+type = "EconomicDispatch"
+kwargs.soft_thermal_limit = true
+solver.name = "Mosek"
+
 [OPF.SOCWRConic]
 type = "SOCWRConicPowerModel"
 solver.name = "Mosek"
