@@ -112,6 +112,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     for s in smin:smax
         rng = StableRNG(s)
         tgen = @elapsed data_ = rand(rng, opf_sampler)
+        OPFGenerator.add_e2elr_reserve_data!(data_, rng)
         tsolve = @elapsed d = main(data_, config)
         d["meta"]["seed"] = s
 
