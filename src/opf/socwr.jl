@@ -68,17 +68,18 @@ function build_opf(::Type{OPF}, data::Dict{String,Any}, optimizer;
     # Nodal power balance
     JuMP.@constraint(model, 
         kirchhoff_active[i in 1:N],
-        sum(pf[a] for a in ref[:bus_arcs][i]) ==
-        sum(pg[g] for g in ref[:bus_gens][i]) -
-        sum(load["pd"] for load in bus_loads[i]) -
-        sum(shunt["gs"] for shunt in bus_shunts[i])*w[i]
+        sum(pg[g] for g in ref[:bus_gens][i])
+        - sum(pf[a] for a in ref[:bus_arcs][i])
+        - sum(shunt["gs"] for shunt in bus_shunts[i])*w[i]
+        == sum(load["pd"] for load in bus_loads[i])
     )
     JuMP.@constraint(model,
         kirchhoff_reactive[i in 1:N],
-        sum(qf[a] for a in ref[:bus_arcs][i]) ==
-        sum(qg[g] for g in ref[:bus_gens][i]) -
-        sum(load["qd"] for load in bus_loads[i]) +
-        sum(shunt["bs"] for shunt in bus_shunts[i])*w[i]
+        sum(qg[g] for g in ref[:bus_gens][i]) 
+        - sum(qf[a] for a in ref[:bus_arcs][i])
+        + sum(shunt["bs"] for shunt in bus_shunts[i])*w[i]
+        ==
+        sum(load["qd"] for load in bus_loads[i])
     )
 
     # Branch power flow physics and limit constraints
@@ -321,9 +322,9 @@ function json2h5(::Type{OPF}, res) where{OPF <: Union{PM.SOCWRPowerModel,PM.SOCW
 
     res_h5 = Dict{String,Any}(
         "meta" => Dict{String,Any}(
-            "termination_status" => res["termination_status"],
-            "primal_status" => res["primal_status"],
-            "dual_status" => res["dual_status"],
+            "termination_status" => string(res["termination_status"]),
+            "primal_status" => string(res["primal_status"]),
+            "dual_status" => string(res["dual_status"]),
             "solve_time" => res["solve_time"],
         ),
     )
