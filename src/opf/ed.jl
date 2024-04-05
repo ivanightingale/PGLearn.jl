@@ -414,3 +414,39 @@ function json2h5(::Type{EconomicDispatch}, res)
     return res_h5
 
 end
+
+
+function add_e2elr_reserve_data!(data::Dict{String, Any}, rng; lb=1, ub=2, factor=5)
+
+    G = length(data["gen"])
+    uniform = Uniform(lb, ub)
+    
+    p_max = maximum(gen["pmax"] for (id, gen) in data["gen"]) 
+    MRR = rand(rng, uniform) * p_max
+
+    p_ranges = [gen["pmax"] - gen["pmin"] for (id, gen) in data["gen"]]
+    @assert all(p_ranges .≥ 0.0) "All generators must have a non-negative range (pmax - pmin ≥ 0)"
+
+    alpha = factor * p_max / sum(abs.(p_ranges))
+    
+    for g in 1:G
+        gen = data["gen"]["$g"]
+        gen["rmin"] = 0.0
+        gen["rmax"] = alpha * p_ranges[g]
+    end
+    data["minimum_reserve"] = MRR
+end
+
+function add_ucjl_reserve_data!(data::Dict{String, Any}, rng; minfrac=0.1, maxfrac=0.1)
+    G = length(data["gen"])
+
+    load = sum(load["pd"] for (id, load) in data["load"])
+    MRR = minfrac * load
+
+    for g in 1:G
+        gen = data["gen"]["$g"]
+        gen["rmin"] = 0.0
+        gen["rmax"] = maxfrac * gen["pmax"]
+    end
+    data["minimum_reserve"] = MRR
+end
