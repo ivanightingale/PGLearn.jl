@@ -8,7 +8,6 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     soft_reserve_requirement::Bool=false,
     soft_thermal_limit::Bool=false,
     iterative_ptdf::Bool=true,
-    minimum_reserve=0.0,
     power_balance_penalty=350000.0,
     reserve_shortage_penalty=110000.0,
     transmission_penalty=150000.0,
@@ -27,7 +26,6 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     power_balance_penalty >= 0.0 || error("EconomicDispatch option power_balance_penalty must be non-negative")
     reserve_shortage_penalty >= 0.0 || error("EconomicDispatch option reserve_shortage_penalty must be non-negative")
     transmission_penalty >= 0.0 || error("EconomicDispatch option transmission_penalty must be non-negative")
-    minimum_reserve >= 0.0 || error("EconomicDispatch option minimum_reserve must be non-negative")
     max_ptdf_iterations > 0 || error("EconomicDispatch option max_ptdf_iterations must be a positive integer")
     max_ptdf_per_iteration > 0 || error("EconomicDispatch option max_ptdf_per_iteration must be a positive integer")
 
@@ -42,6 +40,7 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     PD = sum(ref[:load][l]["pd"] for l in 1:L)
     pfmax = [data["branch"]["$e"]["rate_a"] for e in 1:E]
 
+    minimum_reserve = get(data, "minimum_reserve", 0.0)
     rmax = (minimum_reserve > 0.0) ? [ref[:gen][g]["rmax"] for g in 1:G] : zeros(T, G)
 
     model = JuMP.GenericModel{T}(optimizer)
