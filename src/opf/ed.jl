@@ -8,6 +8,7 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     soft_reserve_requirement::Bool=false,
     soft_thermal_limit::Bool=false,
     iterative_ptdf::Bool=true,
+    iterative_ptdf_tol=1e-6,
     power_balance_penalty=350000.0,
     reserve_shortage_penalty=110000.0,
     transmission_penalty=150000.0,
@@ -54,6 +55,7 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
         :transmission_penalty => transmission_penalty,
         :minimum_reserve => minimum_reserve,
         :iterative_ptdf => iterative_ptdf,
+        :iterative_ptdf_tol => iterative_ptdf_tol,
         :max_ptdf_iterations => max_ptdf_iterations,
         :max_ptdf_per_iteration => max_ptdf_per_iteration,
     )
@@ -141,6 +143,7 @@ function solve!(opf::OPFModel{EconomicDispatch})
     data = opf.data
     model = opf.model
     T = typeof(model).parameters[1]
+    tol = model.ext[:opf_formulation][:iterative_ptdf_tol]
     
     if !model.ext[:opf_formulation][:iterative_ptdf]
         optimize!(opf.model, _differentiation_backend = MathOptSymbolicAD.DefaultBackend())
@@ -194,7 +197,7 @@ function solve!(opf::OPFModel{EconomicDispatch})
 
         n_violated = 0
         for e in 1:E
-            if (model.ext[:tracked_branches][e]) || (-rate_a[e] <= pf_[e] <= rate_a[e])
+            if (model.ext[:tracked_branches][e]) || (-rate_a[e] - tol <= pf_[e] <= rate_a[e] + tol)
                 continue
             end
 
