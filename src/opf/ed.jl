@@ -46,14 +46,7 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
 
     model = JuMP.GenericModel{T}(optimizer)
     model.ext[:opf_model] = EconomicDispatch  # for internal checks
-    model.ext[:opf_formulation] = Dict{Symbol,Any}(
-        :soft_power_balance => soft_power_balance,
-        :soft_reserve_requirement => soft_reserve_requirement,
-        :soft_thermal_limit => soft_thermal_limit,
-        :power_balance_penalty => power_balance_penalty,
-        :reserve_shortage_penalty => reserve_shortage_penalty,
-        :transmission_penalty => transmission_penalty,
-        :minimum_reserve => minimum_reserve,
+    model.ext[:solve_metadata] = Dict{Symbol,Any}(
         :iterative_ptdf => iterative_ptdf,
         :iterative_ptdf_tol => iterative_ptdf_tol,
         :max_ptdf_iterations => max_ptdf_iterations,
@@ -143,9 +136,9 @@ function solve!(opf::OPFModel{EconomicDispatch})
     data = opf.data
     model = opf.model
     T = typeof(model).parameters[1]
-    tol = model.ext[:opf_formulation][:iterative_ptdf_tol]
+    tol = model.ext[:solve_metadata][:iterative_ptdf_tol]
     
-    if !model.ext[:opf_formulation][:iterative_ptdf]
+    if !model.ext[:solve_metadata][:iterative_ptdf]
         optimize!(opf.model, _differentiation_backend = MathOptSymbolicAD.DefaultBackend())
         return
     end
@@ -185,7 +178,7 @@ function solve!(opf::OPFModel{EconomicDispatch})
         :solve_time => nothing,
     )
     st = nothing
-    solve_time = @elapsed while !solved && niter < model.ext[:opf_formulation][:max_ptdf_iterations]
+    solve_time = @elapsed while !solved && niter < model.ext[:solve_metadata][:max_ptdf_iterations]
         optimize!(opf.model, _differentiation_backend = MathOptSymbolicAD.DefaultBackend())
         
         st = termination_status(model)
@@ -202,7 +195,7 @@ function solve!(opf::OPFModel{EconomicDispatch})
             end
 
             n_violated += 1
-            if n_violated <= model.ext[:opf_formulation][:max_ptdf_per_iteration]
+            if n_violated <= model.ext[:solve_metadata][:max_ptdf_per_iteration]
                 model[:ptdf_flow][e] = JuMP.@constraint(
                     model,
                     model[:pf][e] == dot(model.ext[:PTDF][e, :], p_expr)
@@ -214,7 +207,7 @@ function solve!(opf::OPFModel{EconomicDispatch})
         niter += 1
     end
 
-    if niter == model.ext[:opf_formulation][:max_ptdf_iterations]
+    if niter == model.ext[:solve_metadata][:max_ptdf_iterations]
         model.ext[:termination_info] = Dict{Symbol,Any}(
             :primal_status => MOI.INFEASIBLE_POINT,
             :dual_status => MOI.FEASIBLE_POINT,
@@ -269,8 +262,8 @@ function extract_result(opf::OPFModel{EconomicDispatch})
     res["objective_lb"] = -Inf
     res["optimizer"] = JuMP.solver_name(model)
 
-    res["opf_formulation"] = model.ext[:opf_formulation]
-    if model.ext[:opf_formulation][:iterative_ptdf]
+    res["solve_metadata"] = model.ext[:solve_metadata]
+    if model.ext[:solve_metadata][:iterative_ptdf]
         tinfo = model.ext[:termination_info]
         res["termination_status"] = string(tinfo[:termination_status])
         res["primal_status"] = string(tinfo[:primal_status])
