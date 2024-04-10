@@ -265,15 +265,15 @@ function extract_result(opf::OPFModel{EconomicDispatch})
     res["solve_metadata"] = model.ext[:solve_metadata]
     if model.ext[:solve_metadata][:iterative_ptdf]
         tinfo = model.ext[:termination_info]
-        res["termination_status"] = string(tinfo[:termination_status])
-        res["primal_status"] = string(tinfo[:primal_status])
-        res["dual_status"] = string(tinfo[:dual_status])
+        res["termination_status"] = tinfo[:termination_status]
+        res["primal_status"] = tinfo[:primal_status]
+        res["dual_status"] = tinfo[:dual_status]
         res["solve_time"] = tinfo[:solve_time]
         res["ptdf_iterations"] = tinfo[:ptdf_iterations]
     else
-        res["termination_status"] = string(JuMP.termination_status(model))
-        res["primal_status"] = string(JuMP.primal_status(model))
-        res["dual_status"] = string(JuMP.dual_status(model))
+        res["termination_status"] = JuMP.termination_status(model)
+        res["primal_status"] = JuMP.primal_status(model)
+        res["dual_status"] = JuMP.dual_status(model)
         res["solve_time"] = JuMP.solve_time(model)
     end
 
@@ -340,9 +340,9 @@ function json2h5(::Type{EconomicDispatch}, res)
 
     res_h5 = Dict{String,Any}(
         "meta" => Dict{String,Any}(
-            "termination_status" => res["termination_status"],
-            "primal_status" => res["primal_status"],
-            "dual_status" => res["dual_status"],
+            "termination_status" => string(res["termination_status"]),
+            "primal_status" => string(res["primal_status"]),
+            "dual_status" => string(res["dual_status"]),
             "solve_time" => res["solve_time"],
         ),
     )
