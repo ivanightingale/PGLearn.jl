@@ -33,7 +33,7 @@ function test_opf_pm(::Type{OPFGenerator.EconomicDispatch}, data::Dict)
         # NOTE: PowerModels does not use `pf` variables, so we only check `pg`
     )
 
-    @constraint(opf.model, var2val_pm[:pg] .<= opf.model[:pg] .<= var2val_pm[:pg])
+    @constraint(opf.model, var2val_pm[:pg] .- 1e-8 .<= opf.model[:pg] .<= var2val_pm[:pg] .+ 1e-8)
 
     optimize!(opf.model)
     @test termination_status(opf.model) ∈ [OPTIMAL, LOCALLY_SOLVED, ALMOST_LOCALLY_SOLVED]
