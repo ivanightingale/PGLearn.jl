@@ -7,11 +7,11 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     soft_power_balance::Bool=false,
     soft_reserve_requirement::Bool=false,
     soft_thermal_limit::Bool=false,
-    iterative_ptdf::Bool=true,
-    iterative_ptdf_tol=1e-6,
     power_balance_penalty=350000.0,
     reserve_shortage_penalty=110000.0,
-    transmission_penalty=150000.0,
+    thermal_penalty=150000.0,
+    iterative_ptdf::Bool=true,
+    iterative_ptdf_tol=1e-6,
     max_ptdf_iterations=10,
     max_ptdf_per_iteration=5,
 )
@@ -26,7 +26,7 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
 
     power_balance_penalty >= 0.0 || error("EconomicDispatch option power_balance_penalty must be non-negative")
     reserve_shortage_penalty >= 0.0 || error("EconomicDispatch option reserve_shortage_penalty must be non-negative")
-    transmission_penalty >= 0.0 || error("EconomicDispatch option transmission_penalty must be non-negative")
+    thermal_penalty >= 0.0 || error("EconomicDispatch option transmission_penalty must be non-negative")
     max_ptdf_iterations > 0 || error("EconomicDispatch option max_ptdf_iterations must be a positive integer")
     max_ptdf_per_iteration > 0 || error("EconomicDispatch option max_ptdf_per_iteration must be a positive integer")
 
@@ -126,7 +126,7 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
         power_balance_penalty * δpb_surplus +
         power_balance_penalty * δpb_shortage +
         reserve_shortage_penalty * δr_shortage +
-        transmission_penalty * sum(δf)
+        thermal_penalty * sum(δf)
     )
 
     return OPFModel{EconomicDispatch}(data, model)
