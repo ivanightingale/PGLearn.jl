@@ -443,3 +443,17 @@ function add_ucjl_reserve_data!(data::Dict{String, Any}, rng; minfrac=0.1, maxfr
     end
     data["minimum_reserve"] = MRR
 end
+
+function export_ptdf(opf::OPFModel{EconomicDispatch}, filepath)
+    data = opf.data
+    model = opf.model
+
+    PTDF = model.ext[:PTDF]
+    E = size(PTDF, 1)
+    N = size(PTDF, 2)
+
+    h5open(filepath, "w") do file
+        write(file, "PTDF", PTDF)
+    end
+    return nothing
+end
