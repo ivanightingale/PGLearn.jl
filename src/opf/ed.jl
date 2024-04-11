@@ -42,6 +42,7 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     pfmax = [data["branch"]["$e"]["rate_a"] for e in 1:E]
 
     minimum_reserve = get(data, "minimum_reserve", 0.0)
+    rmin = (minimum_reserve > 0.0) ? [ref[:gen][g]["rmin"] for g in 1:G] : zeros(T, G)
     rmax = (minimum_reserve > 0.0) ? [ref[:gen][g]["rmax"] for g in 1:G] : zeros(T, G)
 
     model = JuMP.GenericModel{T}(optimizer)
@@ -56,7 +57,7 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     # Variables
 
     JuMP.@variable(model, pmin[g] <= pg[g in 1:G] <= pmax[g])
-    JuMP.@variable(model, 0 <= r[g in 1:G] <= rmax[g])
+    JuMP.@variable(model, rmin[g] <= r[g in 1:G] <= rmax[g])
     JuMP.@variable(model, pf[e in 1:E])
 
     # for upper bounds, see https://github.com/AI4OPT/OPFGenerator/pull/64/files#r1529320645
