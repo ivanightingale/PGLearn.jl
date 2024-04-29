@@ -133,6 +133,19 @@ function build_opf(::Type{EconomicDispatch}, data::Dict{String,Any}, optimizer;
     return OPFModel{EconomicDispatch}(data, model)
 end
 
+function update!(opf::OPFModel{EconomicDispatch}, data::Dict{String,Any})
+    PM.standardize_cost_terms!(data, order=2)
+    PM.calc_thermal_limits!(data)
+    ref = PM.build_ref(data)[:it][:pm][:nw][0]
+
+    opf.data = data
+
+    L = length(ref[:load])
+    PD = sum(ref[:load][l]["pd"] for l in 1:L)
+
+    JuMP.set_normalized_rhs(opf.model[:power_balance], PD)
+end
+
 function solve!(opf::OPFModel{EconomicDispatch})
     data = opf.data
     model = opf.model
