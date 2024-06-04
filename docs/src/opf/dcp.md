@@ -20,21 +20,26 @@ Network data:
 ### Primal variables
 
 * ``\boldsymbol{\theta}_{i}``: voltage angle at bus ``i \in \mathcal{N}``
-* ``\mathbf{pg}_{g}``: active power dispatch of generator ``g \in \mathcal{G}``
+* ``\mathbf{p}^{\text{g}}_{g}``: active power dispatch of generator ``g \in \mathcal{G}``
 * ``\mathbf{pf}_{e}``: active power flow on branch ``e \in \mathcal{E}``
 
 ### Dual variables
 
-* 
+* ``\boldsymbol{\lambda}_{i}``: voltage angle at bus ``i \in \mathcal{N}``
+* ``\boldsymbol{\theta}_{i}``: voltage angle at bus ``i \in \mathcal{N}``
+* ``\boldsymbol{\theta}_{i}``: voltage angle at bus ``i \in \mathcal{N}``
+* ``\boldsymbol{\theta}_{i}``: voltage angle at bus ``i \in \mathcal{N}``
+* ``\boldsymbol{\theta}_{i}``: voltage angle at bus ``i \in \mathcal{N}``
+* ``\boldsymbol{\theta}_{i}``: voltage angle at bus ``i \in \mathcal{N}``
 
 
 ## Mathematical formulation
 
 ```math
 \begin{align}
-    \min_{\mathbf{pg}, \mathbf{pf}, \boldsymbol{\theta}} \quad 
+    \min_{\mathbf{p}^{\text{g}}, \mathbf{pf}, \boldsymbol{\theta}} \quad 
     & \label{eq:DCP:objective}
-        \sum_{g \in \mathcal{G}} c_{g} \mathbf{pg}_{g} + c^{0}_{g}
+        \sum_{g \in \mathcal{G}} c_{g} \mathbf{p}^{\text{g}}_{g} + c^{0}_{g}
         \\
     \text{s.t.} \quad
     & \label{eq:DCP:slack_bus}
@@ -42,7 +47,7 @@ Network data:
         &
         &&& [\lambda^{\text{slack}}]\\
     & \label{eq:DCP:kirchhoff}
-        \sum_{g \in \mathcal{G}_{i}} \mathbf{pg}_{g} 
+        \sum_{g \in \mathcal{G}_{i}} \mathbf{p}^{\text{g}}_{g} 
         - \sum_{e \in \mathcal{E}^{+}_{i}} \mathbf{pf}_{e}
         + \sum_{e \in \mathcal{E}^{-}_{i}} \mathbf{pf}_{e}
         = 
@@ -69,7 +74,7 @@ Network data:
         & \forall e \in \mathcal{E}
         &&& [\mu^{f}]\\
     & \label{eq:DCP:pg_bounds}
-        \underline{p}^{g}_{g} \leq \mathbf{pg}_{g} \leq \overline{p}^{g}_{g}
+        \underline{p}^{g}_{g} \leq \mathbf{p}^{\text{g}}_{g} \leq \overline{p}^{g}_{g}
         & \forall g \in \mathcal{G}
         &&& [\mu^{pg}]
 \end{align}
@@ -81,7 +86,7 @@ Primal
 
 | Symbol | Data | Size | Description 
 |:-------|:-----|:-----|:------------|
-| ``\mathbf{pg}`` | `pg` | ``G`` | Active power dispatch
+| ``\mathbf{p}^{\text{g}}`` | `pg` | ``G`` | Active power dispatch
 | ``\boldsymbol{\theta}`` | `va` | ``N`` | Nodal voltage angle
 | ``\mathbf{pf}`` | `pf` | ``E`` | Active power flow
 
