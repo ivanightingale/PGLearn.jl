@@ -33,6 +33,7 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [compat]
 Clarabel = "0.9"
+Distributions = "0.25"
 Graphs = "1.8"
 Ipopt = "1.6"
 JuMP = "1"
