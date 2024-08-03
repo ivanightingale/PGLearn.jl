@@ -34,6 +34,7 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 [compat]
 Clarabel = "0.9"
 Graphs = "1.8"
+HDF5 = "0.17"
 Ipopt = "1.6"
 JuMP = "1"
 MathOptInterface = "1.28"
