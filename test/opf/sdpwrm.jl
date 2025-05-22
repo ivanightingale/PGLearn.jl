@@ -129,15 +129,17 @@ function _test_sdpwrm_DualFeasibility(data::PGLearn.OPFData, res; atol=1e-6)
     μ_w = res["dual"]["w"]
     
     # Reconstruct S from s, sr, si
-    S = Symmetric(sparse(
-        vcat([1:N;], [N+1 : 2*N;], bus_fr, bus_to, bus_fr .+ N, bus_to .+ N, bus_fr, bus_to),
-        vcat([1:N;], [N+1 : 2*N;], bus_to, bus_fr, bus_to .+ N, bus_fr .+ N, bus_to .+ N, bus_fr .+ N),
-        # Symmetric() uses the upper triangular part of the matrix, but there may be branches where f_bus > t_bus (entry is below the diagonal), so we repeat sr for both directions of each branch
-        vcat(s, s, sr, sr, sr, sr, si, -si),
-        2*N, 2*N,
+    S = Hermitian(sparse(
+        vcat([1:N;], bus_fr, bus_to),
+        vcat([1:N;], bus_to, bus_fr),
+        # Hermitian() uses the upper triangular part of the matrix, but there may be branches where f_bus > t_bus (entry is below the diagonal), so we repeat off-diagonal entries for both directions of each branch
+        vcat(s, sr + si*im, sr - si*im),
+        N, N,
         # ignore duplicate values at the same position
         (x, y) -> x
     ))
+    # verify S is positive semidefinite
+    @test eigmin(Matrix(S)) >= -atol
 
     # Check dual constraint corresponding to `WR` variables
     AR_ff_values = [
@@ -169,7 +171,7 @@ function _test_sdpwrm_DualFeasibility(data::PGLearn.OPFData, res; atol=1e-6)
         vcat(AR_ff_values, AR_tt_values, 1/2 * AR_ft_values, 1/2 * AR_ft_values),
         N, N
     ))
-    δwr = AR + S[1:N, 1:N] + S[(N+1):(2*N), (N+1):(2*N)]
+    δwr = AR + real(S)
     @test norm(δwr, Inf) <= atol
 
     # Check dual constraint corresponding to `WI` variables
@@ -187,7 +189,7 @@ function _test_sdpwrm_DualFeasibility(data::PGLearn.OPFData, res; atol=1e-6)
     AI = sparse(
         vcat(bus_fr, bus_to), vcat(bus_to, bus_fr), vcat(1/2 * AI_values, -1/2 * AI_values), N, N
     )
-    δwi = AI + S[1:N, (N+1):(2*N)] - S[(N+1):(2*N), 1:N]
+    δwi = AI + imag(S)
     @test norm(δwi, Inf) <= atol
     return nothing
 end
