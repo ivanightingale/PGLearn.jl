@@ -273,7 +273,6 @@ function extract_dual(opf::OPFModel{SDPOPF})
         #   λₗ = max(λ, 0) and λᵤ = min(λ, 0).
 
         # bus
-        # dual_solution["w"]  = dual.(LowerBoundRef.([model[:WR][i, i] for i in 1:N])) + dual.(UpperBoundRef.([model[:WR][i, i] for i in 1:N]))
         dual_solution["w"] = dual.(model[:w])
         # generator
         dual_solution["pg"] = dual.(LowerBoundRef.(model[:pg])) + dual.(UpperBoundRef.(model[:pg]))
