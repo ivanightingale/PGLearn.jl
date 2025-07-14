@@ -6,6 +6,8 @@ export_dir = "data/89_pegase"
 
 [sampler]
 # Sampler options
+compute_clique_decomposition = false
+
 [sampler.load]
 noise_type = "ScaledUniform"
 l          = 0.60               # Lower bound of base load factor

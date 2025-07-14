@@ -25,7 +25,7 @@ function test_opf_pm(::Type{PGLearn.SDPOPF}, data::Dict)
     @test res["meta"]["primal_status"] ∈ ["FEASIBLE_POINT", "NEARLY_FEASIBLE_POINT"]
     @test res["meta"]["dual_status"] ∈ ["FEASIBLE_POINT", "NEARLY_FEASIBLE_POINT"]
     # Check objective value against PowerModels
-    @test isapprox(res["meta"]["primal_objective_value"], res_pm["objective"], atol=1e-3, rtol=1e-3)
+    @test isapprox(res["meta"]["primal_objective_value"], res_pm["objective"], atol=1e-4, rtol=1e-4)
     @test isapprox(res["meta"]["primal_objective_value"], res["meta"]["dual_objective_value"], rtol=1e-6)
 
     # Force PM solution into our model, and check that the solution is feasible
@@ -42,12 +42,9 @@ function test_opf_pm(::Type{PGLearn.SDPOPF}, data::Dict)
         :w => Float64[sol_pm["bus"]["$i"]["w"] for i in 1:N]
     )
     model = opf.model
-    for varname in [:pg, :qg]
-        x = model[varname]
-        v = var2val_pm[varname]
-        @constraint(model, v .<= x .<= v)
-    end
-    @constraint(model, var2val_pm[:w] .<= diag(model[:WR]) .<= var2val_pm[:w])
+    @constraint(model, model[:pg] .== var2val_pm[:pg])
+    @constraint(model, model[:qg] .== var2val_pm[:qg])
+    @constraint(model, diag(model[:WR]) .== var2val_pm[:w])
 
     optimize!(model)
     @test termination_status(model) ∈ [OPTIMAL, ALMOST_OPTIMAL]
@@ -65,9 +62,9 @@ Test dual feasibility of SDPWRM problem.
 
 This test is executed on the 5 bus system.
 """
-function _test_sdpwrm_DualFeasibility()
+function _test_sdpwrm_DualFeasibility(OPF::Union{Type{PGLearn.SDPOPF}, Type{PGLearn.SparseSDPOPF}})
     T = Float128
-    data = PGLearn.OPFData(make_basic_network(pglib("5_pjm")))
+    data = PGLearn.OPFData(make_basic_network(pglib("5_pjm")); compute_clique_decomposition=(OPF == PGLearn.SparseSDPOPF))
     solver = JuMP.optimizer_with_attributes(Clarabel.Optimizer{T},
         "verbose" => true,
         "equilibrate_enable" => false,
@@ -76,8 +73,10 @@ function _test_sdpwrm_DualFeasibility()
         "tol_feas"       => 1e-14,
         "tol_infeas_rel" => 1e-14,
         "tol_ktratio"    => 1e-14,
+        "static_regularization_constant" => 1e-7,
+        "chordal_decomposition_enable" => false
     )
-    opf = PGLearn.build_opf(PGLearn.SDPOPF, data, solver; T=T)
+    opf = PGLearn.build_opf(OPF, data, solver; T=T)
     # set_silent(opf.model)
     PGLearn.solve!(opf)
     res = PGLearn.extract_result(opf)
@@ -192,13 +191,13 @@ function _test_sdpwrm_DualFeasibility(data::PGLearn.OPFData, res; atol=1e-6)
     return nothing
 end
 
-function _test_sdpwrm_DualSolFormat()
+function _test_sdpwrm_DualSolFormat(OPF::Union{Type{PGLearn.SDPOPF}, Type{PGLearn.SparseSDPOPF}})
     data = make_basic_network(pglib("5_pjm"))
     N = length(data["bus"])
     E = length(data["branch"])
 
     solver = CLRBL_SOLVER_SDP
-    opf = PGLearn.build_opf(PGLearn.SDPOPF, data, solver)
+    opf = PGLearn.build_opf(OPF, data, solver; compute_clique_decomposition=(OPF == PGLearn.SparseSDPOPF))
     set_silent(opf.model)
     PGLearn.solve!(opf)
 

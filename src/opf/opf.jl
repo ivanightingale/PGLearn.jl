@@ -63,16 +63,19 @@ mutable struct OPFData
     dvamin::Vector{Float64}  # angle difference min
     dvamax::Vector{Float64}  # angle difference max
     branch_status::Vector{Bool}  # branch status
+
+    # Clique decomposition data for SparseSDPOPF
+    clique_decomposition::Union{Nothing,Vector{Vector{Int}}}
 end
 
 """
-    OPFData(network::Dict{String,Any})
+    OPFData(network::Dict{String,Any}; compute_clique_decomposition::Bool=false)
 
 Convert a PowerModels data dictionary to `OPFData` structure.
 
 The PowerModels data dictionary must be in basic format.
 """
-function OPFData(network::Dict{String,Any})
+function OPFData(network::Dict{String,Any}; compute_clique_decomposition::Bool=false)
     @assert network["basic_network"] "Network data is not in basic format."
     @assert network["per_unit"] == true "Network data is not per-unit scaled."
 
@@ -254,6 +257,12 @@ function OPFData(network::Dict{String,Any})
 
     A = sparse(A_i, A_j, A_v, E, N)
 
+    if compute_clique_decomposition
+        clique_decomposition = _get_clique_decomposition(network)
+    else 
+        clique_decomposition = nothing
+    end
+
     return OPFData(
         network["name"], network["baseMVA"],
         N, E, G, L, A, Ag,
@@ -271,7 +280,18 @@ function OPFData(network::Dict{String,Any})
         bff, bft, btf, btt,
         smax, dvamin, dvamax,
         branch_status,
+        clique_decomposition,
     )
+end
+
+"""
+    _get_clique_decomposition(network::Dict{String,Any})
+
+Compute the clique decomposition of a PowerModels data dictionary.
+The output is a `Vector{Vector{Int}}` containing all the cliques in the chordal completion of network.
+"""
+function _get_clique_decomposition(network::Dict{String,Any})
+    return instantiate_model(network, SparseSDPWRMPowerModel, PM.build_opf).ext[:SDconstraintDecomposition].decomp
 end
 
 function to_dict(data::OPFData)
@@ -308,6 +328,7 @@ include("dcp.jl")      # DCPPowerModel
 include("ed.jl")       # EconomicDispatch
 include("socwr.jl")    # SOCOPF & SOCOPFQuad
 include("sdpwrm.jl")   # SDPWRMPowerModel
+include("sparse_sdpwrm.jl")
 
 # Contains a list of all supported OPF models
 const SUPPORTED_OPF_MODELS = Type{<:AbstractFormulation}[
@@ -317,6 +338,7 @@ const SUPPORTED_OPF_MODELS = Type{<:AbstractFormulation}[
     SOCOPFQuad,
     SOCOPF,
     SDPOPF,
+    SparseSDPOPF,
 ]
 
 # A name --> type dictionary
@@ -328,10 +350,11 @@ const OPF2TYPE = Dict{String,Type{<:AbstractFormulation}}(
     "SOCOPFQuad" => SOCOPFQuad,
     "SOCOPF" => SOCOPF,
     "SDPOPF" => SDPOPF,
+    "SparseSDPOPF" => SparseSDPOPF,
 )
 
-function build_opf(OPF::Type{<:AbstractFormulation}, network::Dict, optimizer; kwargs...)
-    return build_opf(OPF, OPFData(network), optimizer; kwargs...)
+function build_opf(OPF::Type{<:AbstractFormulation}, network::Dict, optimizer; compute_clique_decomposition::Bool=false, kwargs...)
+    return build_opf(OPF, OPFData(network; compute_clique_decomposition), optimizer; kwargs...)
 end
 
 function solve!(opf::OPFModel{<:AbstractFormulation})

@@ -18,7 +18,7 @@ using PGLearn
 
 const IPOPT_SOLVER = JuMP.optimizer_with_attributes(Ipopt.Optimizer, "linear_solver" => "mumps", "print_level" => 1, "tol" => 1e-6)
 const CLRBL_SOLVER = JuMP.optimizer_with_attributes(Clarabel.Optimizer, "verbose" => true)
-const CLRBL_SOLVER_SDP = JuMP.optimizer_with_attributes(Clarabel.Optimizer, "verbose" => true, "static_regularization_constant" => 1e-7)
+const CLRBL_SOLVER_SDP = JuMP.optimizer_with_attributes(Clarabel.Optimizer, "verbose" => true, "static_regularization_constant" => 1e-7, "chordal_decomposition_enable" => false)
 const CLRBL128_SOLVER = JuMP.optimizer_with_attributes(Clarabel.Optimizer{Float128}, "verbose" => true)
 const HIGHS_SOLVER = JuMP.optimizer_with_attributes(HiGHS.Optimizer, "output_flag" => true)
 
@@ -27,6 +27,7 @@ const OPT_SOLVERS = Dict(
     PGLearn.SOCOPFQuad        => IPOPT_SOLVER,
     PGLearn.SOCOPF            => CLRBL_SOLVER,
     PGLearn.SDPOPF            => CLRBL_SOLVER_SDP,
+    PGLearn.SparseSDPOPF      => CLRBL_SOLVER_SDP,
     PGLearn.DCOPF             => HIGHS_SOLVER,
     PGLearn.EconomicDispatch  => HIGHS_SOLVER,
 )
