@@ -1,3 +1,5 @@
+using LinearAlgebra
+
 struct SDPOPF <: AbstractFormulation end
 
 """
@@ -40,8 +42,9 @@ function build_opf(::Type{SDPOPF}, data::OPFData, optimizer;
     =#
 
     # voltage magnitude and product
-    @variable(model, WR[1:N, 1:N], Symmetric)
-    @variable(model, WI[1:N, 1:N] in SkewSymmetricMatrixSpace())
+    @variable(model, W[1:N, 1:N] in HermitianPSDCone())
+    @expression(model, WR, real(W))
+    @expression(model, WI, imag(W))
 
     # Active and reactive dispatch
     @variable(model, pg[g in 1:G])
@@ -58,8 +61,7 @@ function build_opf(::Type{SDPOPF}, data::OPFData, optimizer;
     #
 
     # Voltage magnitude bounds
-    set_lower_bound.([WR[i, i] for i in 1:N], vmin.^2)
-    set_upper_bound.([WR[i, i] for i in 1:N], vmax.^2)
+    @constraint(model, w, vmin.^2 .<= diag(real(W)) .<= vmax.^2)
 
     # Active generation bounds (both zero if generator is off)
     set_lower_bound.(pg, gen_status .* pgmin)
@@ -131,9 +133,6 @@ function build_opf(::Type{SDPOPF}, data::OPFData, optimizer;
     # Voltage angle difference limit
     @constraint(model, va_diff_lb[e in 1:E], branch_status[e] * wi[e] - branch_status[e] * tan(dvamin[e]) * wr[e] >= 0)
     @constraint(model, va_diff_ub[e in 1:E], branch_status[e] * wi[e] - branch_status[e] * tan(dvamax[e]) * wr[e] <= 0)
-    
-    # PSD constraint
-    @constraint(model, S, [WR WI; -WI WR] in PSDCone())
     
     #
     #   III. Objective
@@ -236,13 +235,13 @@ function extract_dual(opf::OPFModel{SDPOPF})
     )
 
     if has_duals(model)
-        S = dual.(model[:S])  # 2N * 2N, with four N * N blocks
+        S = dual(VariableInSetRef(model[:W]))
 
         # Bus-level constraints
         dual_solution["kcl_p"] = dual.(model[:kcl_p])
         dual_solution["kcl_q"] = dual.(model[:kcl_q])
-        # diagonal of the upper-left block of S
-        dual_solution["s"] = [S[i, i] for i in 1:N]
+        # diagonal of S
+        dual_solution["s"] = diag(real(S))
 
         # Generator-level constraints
         # N/A
@@ -259,9 +258,9 @@ function extract_dual(opf::OPFModel{SDPOPF})
         # that don't are 0.
         # If there are multiple branches from bus i to j, the same entries of S are extracted for
         # each of the branches.
-        dual_solution["sr"] = [S[bus_fr[e], bus_to[e]] for e in 1:E] # upper left block of S
-        dual_solution["si"] = [S[bus_fr[e], bus_to[e] + N] for e in 1:E] # upper right block of S
-        
+        dual_solution["sr"] = [real(S[bus_fr[e], bus_to[e]]) for e in 1:E]
+        dual_solution["si"] = [imag(S[bus_fr[e], bus_to[e]]) for e in 1:E]
+
         # For conic constraints, JuMP will return Vector{Vector{T}}
         # reshape duals of conic constraints into matrix shape
         dual_solution["sm_fr"] = mapreduce(permutedims, vcat, dual_solution["sm_fr"])
@@ -274,7 +273,7 @@ function extract_dual(opf::OPFModel{SDPOPF})
         #   λₗ = max(λ, 0) and λᵤ = min(λ, 0).
 
         # bus
-        dual_solution["w"]  = dual.(LowerBoundRef.([model[:WR][i, i] for i in 1:N])) + dual.(UpperBoundRef.([model[:WR][i, i] for i in 1:N]))
+        dual_solution["w"] = dual.(model[:w])
         # generator
         dual_solution["pg"] = dual.(LowerBoundRef.(model[:pg])) + dual.(UpperBoundRef.(model[:pg]))
         dual_solution["qg"] = dual.(LowerBoundRef.(model[:qg])) + dual.(UpperBoundRef.(model[:qg]))
