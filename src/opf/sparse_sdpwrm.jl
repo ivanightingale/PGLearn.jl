@@ -1,4 +1,5 @@
 # Part of this implementation is modified from PowerModels.jl (https://github.com/lanl-ansi/PowerModels.jl/blob/master/src/form/wrm.jl).
+using LinearAlgebra
 
 struct SparseSDPOPF <: AbstractFormulation end
 
@@ -27,6 +28,8 @@ function build_opf(::Type{SparseSDPOPF}, data::OPFData, optimizer;
     bff, bft, btf, btt = data.bff, data.bft, data.btf, data.btt
     dvamin, dvamax, smax = data.dvamin, data.dvamax, data.smax
     branch_status = data.branch_status
+
+    # wr_min, wr_max, wi_min, wi_max = compute_voltage_phasor_bounds(data)
 
     model = JuMP.GenericModel{T}(optimizer)
     model.ext[:opf_model] = SparseSDPOPF
@@ -59,9 +62,10 @@ function build_opf(::Type{SparseSDPOPF}, data::OPFData, optimizer;
             Symmetric;
             base_name="WR_$(gidx)"
         )
-        WI_g = voltage_product_groups[gidx][:WI] = @variable(
+        WI_g = model[Symbol("WI_$(gidx)")] = voltage_product_groups[gidx][:WI] = @variable(
             model,
-            [1:n, 1:n] in SkewSymmetricMatrixSpace();
+            # [1:n, 1:n] in SkewSymmetricMatrixSpace();
+            [1:n, 1:n];
             base_name="WI_$(gidx)"
         )
         
@@ -85,6 +89,11 @@ function build_opf(::Type{SparseSDPOPF}, data::OPFData, optimizer;
             i_bus, j_bus = group[i], group[j]
             # if there exists a branch from i_bus to j_bus
             if (i_bus, j_bus) in zip(bus_fr, bus_to)
+                # e = findfirst(==((i_bus, j_bus)), collect(zip(bus_fr, bus_to)))
+                # set_upper_bound(WR_g[i, j], wr_max[e])
+                # set_lower_bound(WR_g[i, j], wr_min[e])
+                # set_upper_bound(WI_g[i, j], wi_max[e])
+                # set_lower_bound(WI_g[i, j], wi_min[e])
                 if !((i_bus, j_bus) in visited_directed_buspairs)
                     push!(visited_directed_buspairs, (i_bus, j_bus))
                     wr_map[(i_bus, j_bus)] = WR_g[i, j]
@@ -297,10 +306,14 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
         "pg"         => zeros(T, G),
         "qg"         => zeros(T, G),
         # branch
+        # "wr"         => zeros(T, E),
+        # "wi"         => zeros(T, E),
         "pf"         => zeros(T, E),
         "qf"         => zeros(T, E),
         "pt"         => zeros(T, E),
         "qt"         => zeros(T, E),
+        "S"          => Dict(),
+        "cholesky"   => Dict()
     )
 
     if has_duals(model)
@@ -314,10 +327,35 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
         for (gidx, group) in enumerate(groups)
             n = length(group)
             S_g = dual.(constraint_by_name(model, "S_$(gidx)"))  # 2n * 2n, with four n * n blocks
+            
+            # post-processing to obtain the correct sparsity structure in S
+            S_tmp = copy(S_g)
+            S_tmp_11 = S_tmp[1:n, 1:n];
+            S_tmp_12 = S_tmp[1 : n, n+1 : 2*n]
+            S_tmp_21 = S_tmp[n+1 : 2*n, 1 : n]
+            S_tmp_22 = S_tmp[n+1 : 2*n, n+1 : 2*n]
+            S_tmp = (S_tmp + S_tmp') / 2
+            S_tmp[1 : n, n+1 : 2*n] = (S_tmp_12 + S_tmp_21' - S_tmp_12' - S_tmp_21) / 4
+            S_tmp[n+1 : 2*n, 1 : n] = (S_tmp_21 + S_tmp_12' - S_tmp_21' - S_tmp_12) / 4
+            S_tmp[1:n, 1:n] = (S_tmp_11 + S_tmp_22) / 2
+            S_tmp[n+1 : 2*n, n+1 : 2*n] = (S_tmp_11 + S_tmp_22) / 2
+            S_complex = S_tmp[1:n, 1:n] + im * S_tmp[1 : n, n+1 : 2*n]
+            dual_solution["S"][group] = copy(S_complex)
+            S_complex = Hermitian(S_complex)
+            shift = minimum(eigvals(S_complex))
+            if shift < 0
+                @warn group shift
+                S_compelx += -shift * I
+            end
+            L_cholesky = cholesky(S_complex)
+            dual_solution["cholesky"][group] = L_cholesky
+
             WR_g = model[Symbol("WR_$(gidx)")]
+            WI_g = model[Symbol("WI_$(gidx)")]
             for i in 1:n
                 i_bus = group[i]
-                dual_solution["s"][i_bus] += S_g[i, i]
+                # dual_solution["s"][i_bus] += S_g[i, i]
+                dual_solution["s"][i_bus] += S_tmp[i, i]
                 # For mu_w, we also need to sum the values multiple times for the same bus, since bounds
                 # have been imposed on all linked w variables
                 dual_solution["w"][i_bus] += dual(LowerBoundRef(WR_g[i, i])) + dual(UpperBoundRef(WR_g[i, i]))
@@ -332,8 +370,12 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
                 # each of the branches.
                 e_idx = findall(==((i_bus, j_bus)), zip(bus_fr, bus_to) |> collect)
                 for e in e_idx
-                    dual_solution["sr"][e] += S_g[i, j]
-                    dual_solution["si"][e] += S_g[i, j + n]
+                    # dual_solution["sr"][e] += S_g[i, j]
+                    # dual_solution["si"][e] += S_g[i, j + n]
+                    dual_solution["sr"][e] += S_tmp[i, j]
+                    dual_solution["si"][e] += S_tmp[i, j + n]
+                    # dual_solution["wr"][e] += dual(LowerBoundRef(WR_g[i, j])) + dual(UpperBoundRef(WR_g[i, j]))
+                    # dual_solution["wi"][e] += (dual(LowerBoundRef(WI_g[i, j])) + dual(UpperBoundRef(WI_g[i, j]))) .* 2
                 end
             end
         end
