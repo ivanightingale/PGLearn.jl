@@ -348,7 +348,7 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
                 S_compelx += -shift * I
             end
             L_cholesky = cholesky(S_complex)
-            dual_solution["cholesky"][group] = L_cholesky
+            dual_solution["cholesky"][Set(group)] = L_cholesky
 
             WR_g = model[Symbol("WR_$(gidx)")]
             WI_g = model[Symbol("WI_$(gidx)")]
