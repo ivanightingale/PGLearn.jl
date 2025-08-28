@@ -312,8 +312,7 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
         "qf"         => zeros(T, E),
         "pt"         => zeros(T, E),
         "qt"         => zeros(T, E),
-        "S"          => Dict(),
-        "cholesky"   => Dict()
+        "trius"      => zeros(T, 0)
     )
 
     if has_duals(model)
@@ -340,7 +339,6 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
             S_tmp[1:n, 1:n] = (S_tmp_11 + S_tmp_22) / 2
             S_tmp[n+1 : 2*n, n+1 : 2*n] = (S_tmp_11 + S_tmp_22) / 2
             S_complex = S_tmp[1:n, 1:n] + im * S_tmp[1 : n, n+1 : 2*n]
-            dual_solution["S"][group] = copy(S_complex)
             S_complex = Hermitian(S_complex)
             shift = minimum(eigvals(S_complex))
             if shift < 0
@@ -348,7 +346,7 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
                 S_compelx += -shift * I
             end
             L_cholesky = cholesky(S_complex)
-            dual_solution["cholesky"][Set(group)] = L_cholesky
+            dual_solution["trius"][Set(group)] = L_cholesky
 
             WR_g = model[Symbol("WR_$(gidx)")]
             WI_g = model[Symbol("WI_$(gidx)")]
