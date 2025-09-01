@@ -315,6 +315,8 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
         "trius"      => zeros(T, 0)
     )
 
+    # Vector of Vectors of complex entries of the Cholesky matrix of each clique in row-major order
+    trius = Vector{Complex{T}}[]
     if has_duals(model)
         groups = opf.data.clique_decomposition
         # Construct S (which has the sparsity pattern of the original network) by summing S_g of
@@ -340,13 +342,14 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
             S_tmp[n+1 : 2*n, n+1 : 2*n] = (S_tmp_11 + S_tmp_22) / 2
             S_complex = S_tmp[1:n, 1:n] + im * S_tmp[1 : n, n+1 : 2*n]
             S_complex = Hermitian(S_complex)
-            shift = minimum(eigvals(S_complex))
+            # fix small negative eigenvalues so that cholesky will work
+            shift = eigmin(S_complex)
             if shift < 0
                 @warn group shift
                 S_compelx += -shift * I
             end
-            L_cholesky = cholesky(S_complex)
-            dual_solution["trius"][Set(group)] = L_cholesky
+            U = cholesky(S_complex).U  # UpperTriangular
+            push!(trius, [U[i, j] for i in axes(U, 1) for j in i:size(U, 2)])  # upper-triangular entries in row-major order
 
             WR_g = model[Symbol("WR_$(gidx)")]
             WI_g = model[Symbol("WI_$(gidx)")]
@@ -415,6 +418,9 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
         dual_solution["qf"] = dual.(LowerBoundRef.(model[:qf])) + dual.(UpperBoundRef.(model[:qf]))
         dual_solution["pt"] = dual.(LowerBoundRef.(model[:pt])) + dual.(UpperBoundRef.(model[:pt]))
         dual_solution["qt"] = dual.(LowerBoundRef.(model[:qt])) + dual.(UpperBoundRef.(model[:qt]))
+
+        trius_flat = reduce(vcat, trius)
+        dual_solution["trius"] = vcat(real.(trius_flat), imag.(trius_flat))
     end
 
     return dual_solution
