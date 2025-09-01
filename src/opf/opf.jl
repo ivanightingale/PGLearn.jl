@@ -291,7 +291,8 @@ Compute the clique decomposition of a PowerModels data dictionary.
 The output is a `Vector{Vector{Int}}` containing all the cliques in the chordal completion of network.
 """
 function _get_clique_decomposition(network::Dict{String,Any})
-    return instantiate_model(network, SparseSDPWRMPowerModel, PM.build_opf).ext[:SDconstraintDecomposition].decomp
+    groups = instantiate_model(network, SparseSDPWRMPowerModel, PM.build_opf).ext[:SDconstraintDecomposition].decomp
+    return sort(sort.(groups))
 end
 
 function to_dict(data::OPFData)
