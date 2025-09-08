@@ -17,14 +17,14 @@ using PGLearn
 include("vis_utils.jl")
 
 case_name = "14_ieee"
-pred_name = "nu_polar_lin_0.0001_2_512_512_512_cho"
+file_path = joinpath("data", case_name, "$(pred_name).h5")
 
 res_vec = JLD2.load("cholesky_$(case_name).jld2", "data")
 seeds = map(res -> res["input"]["seed"], res_vec)
 load_sums = map(res -> sum(res["input"]["pd"] .+ res["input"]["qd"]), res_vec)
 sorted_load_sums = sort(load_sums)
 load_sums_perm = sortperm(load_sums)
-pred_triu_dict = load_dict_hdf5(joinpath("data", case_name, "$(pred_name).h5"))
+pred_triu_dict = load_dict_hdf5(file_path)
 
 network = make_basic_network(pglib(case_name))
 groups = Set.(PGLearn.OPFData(network, compute_clique_decomposition=true).clique_decomposition)
@@ -60,9 +60,23 @@ for (plt_i, group) in enumerate(groups)
         scatter!(
             ax,
             sorted_load_sums,
-            real.(pred_triu_dict[group][i, i, eachindex(seeds)])[load_sums_perm];
+            [imag(res["dual"]["cholesky"][group].U[i, i]) for res in res_vec][load_sums_perm];
+            markersize=markersize,
+            color=true_im_color
+        )
+        scatter!(
+            ax,
+            sorted_load_sums,
+            real(pred_triu_dict[group][i, i, eachindex(seeds)])[load_sums_perm];
             markersize=markersize,
             color=pred_re_color
+        )
+        scatter!(
+            ax,
+            sorted_load_sums,
+            imag(pred_triu_dict[group][i, i, eachindex(seeds)])[load_sums_perm];
+            markersize=markersize,
+            color=pred_im_color
         )
         push!(axes, ax)
         for j in i+1:n
@@ -87,7 +101,7 @@ for (plt_i, group) in enumerate(groups)
             scatter!(
                 ax,
                 sorted_load_sums,
-                real.(pred_triu_dict[group][i, j, eachindex(seeds)])[load_sums_perm];
+                real(pred_triu_dict[group][i, j, eachindex(seeds)])[load_sums_perm];
                 markersize=markersize,
                 color=pred_re_color,
                 label="Re - $(pred_name)"
@@ -95,7 +109,7 @@ for (plt_i, group) in enumerate(groups)
             scatter!(
                 ax,
                 sorted_load_sums,
-                imag.(pred_triu_dict[group][i, j, eachindex(seeds)])[load_sums_perm];
+                imag(pred_triu_dict[group][i, j, eachindex(seeds)])[load_sums_perm];
                 markersize=markersize,
                 color=pred_im_color,
                 label="Im - $(pred_name)"
