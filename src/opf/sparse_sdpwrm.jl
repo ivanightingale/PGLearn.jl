@@ -315,7 +315,7 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
         "trius"      => zeros(T, 0)
     )
 
-    # Vector of Vectors of complex entries of the Cholesky matrix of each clique in row-major order
+    # Vector of Vectors, where each Vector contains the complex entries of the Cholesky matrix of each clique in row-major order
     trius = Vector{Complex{T}}[]
     if has_duals(model)
         groups = opf.data.clique_decomposition
@@ -343,10 +343,10 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
             S_complex = S_tmp[1:n, 1:n] + im * S_tmp[1 : n, n+1 : 2*n]
             S_complex = Hermitian(S_complex)
             # fix small negative eigenvalues so that cholesky will work
-            shift = eigmin(S_complex)
-            if shift < 0
-                @warn group shift
-                S_compelx += -shift * I
+            min_eigval = eigmin(S_complex)
+            if min_eigval < 1e-9
+                @warn group min_eigval
+                S_complex += (1e-9 + abs(min_eigval)) * I
             end
             U = cholesky(S_complex).U  # UpperTriangular
             push!(trius, [U[i, j] for i in axes(U, 1) for j in i:size(U, 2)])  # upper-triangular entries in row-major order
