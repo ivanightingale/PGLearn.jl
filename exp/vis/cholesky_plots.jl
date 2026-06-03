@@ -16,21 +16,31 @@ using PGLearn
 
 include("vis_utils.jl")
 
-case_name = "14_ieee"
+case_name = "118_ieee"
 
 network = make_basic_network(pglib(case_name))
 groups = Set.(PGLearn.OPFData(network, compute_clique_decomposition=true).clique_decomposition)
 
-res_vec = JLD2.load("cholesky_$(case_name).jld2", "data")
-load_sums, trius = reconstruct_trius_dict(res_vec, groups)
-trius_pred = nothing
+# # PGLearn outputs
+# solver = "clarabel"
+# precision = 128
+# if solver == "mosek"
+#     res_vec = JLD2.load("cholesky_$(case_name)_msk.jld2", "data")
+# elseif precision == 128
+#     res_vec = JLD2.load("cholesky_$(case_name)_128.jld2", "data")
+# elseif precision == 64
+#     res_vec = JLD2.load("cholesky_$(case_name).jld2", "data")
+# end
+# load_sums, trius = reconstruct_trius_dict(res_vec, groups)
+# trius_pred = nothing
 
-# n_instances = 100
-# pred_name = "nu_polar_polar_0.001_2_512_512_512"
-# file_path = joinpath("data", case_name, "$(pred_name).h5")
-# load_sums, trius, trius_pred = load_hdf5_to_dict(file_path; n_instances)
+# DCP outputs
+n_instances = 400
+pred_name = "nu_polar_lin_loads_fc_4_512_s_sl0.01_500_scale_0.001_2_2_512_512_512"
+file_path = joinpath("data", case_name, "$(pred_name).h5")
+load_sums, trius, trius_pred = load_dcp_trius(file_path, groups; n_instances)
 
-groups = filter_groups(trius; k=40)
+groups = filter_groups(trius; k=30)
 
 n_rows = ceil(Int, sqrt(length(groups)))
 n_cols = ceil(Int, length(groups) / n_rows)
@@ -138,5 +148,14 @@ Legend(
 )
 fig.layout.rowsizes = vcat(repeat([Relative(row_size / (n_rows * row_size + legend_size))]; outer=n_rows), [Relative(legend_size / (n_rows * row_size + legend_size))])
 
-# save("cholesky_plots_$(case_name)_$(pred_name).png", fig)
-save("cholesky_plots_$(case_name).png", fig)
+# # PGLearn
+# if solver == "mosek"
+#     save("cholesky_plots_$(case_name)_msk.png", fig)
+# elseif precision == 128
+#     save("cholesky_plots_$(case_name)_128.png", fig)
+# elseif precision == 64
+#     save("cholesky_plots_$(case_name).png", fig)
+# end
+
+# DCP
+save("cholesky_plots_$(case_name)_$(pred_name).png", fig)

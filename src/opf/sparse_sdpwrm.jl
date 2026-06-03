@@ -342,11 +342,13 @@ function extract_dual(opf::OPFModel{SparseSDPOPF})
             S_tmp[n+1 : 2*n, n+1 : 2*n] = (S_tmp_11 + S_tmp_22) / 2
             S_complex = S_tmp[1:n, 1:n] + im * S_tmp[1 : n, n+1 : 2*n]
             S_complex = Hermitian(S_complex)
-            # fix small negative eigenvalues so that cholesky will work
-            min_eigval = eigmin(S_complex)
-            if min_eigval < 1e-9
-                @warn group min_eigval
-                S_complex += (1e-9 + abs(min_eigval)) * I
+            if (eltype(S_complex) == ComplexF64) || (eltype(S_complex) == ComplexF32)
+                # fix small negative eigenvalues so that cholesky will work
+                min_eigval = eigmin(S_complex)
+                if min_eigval < 1e-9
+                    @warn group min_eigval
+                    S_complex += (1e-9 + abs(min_eigval)) * I
+                end
             end
             U = cholesky(S_complex).U  # UpperTriangular
             push!(trius, [U[i, j] for i in axes(U, 1) for j in i:size(U, 2)])  # upper-triangular entries in row-major order
